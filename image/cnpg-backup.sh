@@ -10,7 +10,7 @@ do
   # not a folder and older than 60 days
   if [[ "$fileName" != */ && $createDate -lt $olderThan ]]; then
     echo "Deleting $fileName"
-    aws s3 rm "${AWS_ACCESS_BUCKET}$fileName"
+    aws s3 rm "${AWS_ACCESS_BUCKET}/$fileName"
   fi
 done
 
