@@ -1,15 +1,10 @@
-FROM postgres:14.5
+FROM postgres:16.8-bullseye
 
 ADD . /app
-
-RUN apt update -y \
-  && apt install -y tar \
-  && apt install -y awscli \
-  && apt install -y python3-pip
-
-RUN pip install --upgrade pip \
-  && pip install --upgrade awscli
-
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tar python3-pip \
+    && pip install --no-cache-dir awscli \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-
 CMD ["bash","cnpg-backup.sh"]
+

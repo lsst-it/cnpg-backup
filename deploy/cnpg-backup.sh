@@ -1,25 +1,39 @@
 #!/bin/bash
 cat << END | kubectl apply -f -
-apiVersion: v1
-kind: Secret
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
 metadata:
   name: cnpg-backup-secrets
-  namespace: cloudnativepg
-type: Opaque
-stringData:
-  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-  AWS_ACCESS_BUCKET: ${AWS_ACCESS_BUCKET}
-  PGPASSWORD: ${SUPERUSER_PASSWORD}
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: onepassword
+  data:
+    - secretKey: AWS_ACCESS_KEY_ID
+      remoteRef:
+        key: cnpg-aws-creds-manke
+        property: username
+    - secretKey: AWS_SECRET_ACCESS_KEY
+      remoteRef:
+        key: cnpg-aws-creds-manke
+        property: password
+    - secretKey: AWS_ACCESS_BUCKET
+      remoteRef:
+        key: cnpg-aws-creds-manke
+        property: website
+    - secretKey: PGPASSWORD
+      remoteRef:
+        key: cnpg-cluster-superuser-manke
+        property: password
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: cnpg-backups
-  namespace: cloudnativepg
 spec:
   concurrencyPolicy: Forbid
-  schedule: "0 12,21 * * *" #9AM CLT - 6PM CLT
+  schedule: 0 12,21 * * *  # 9AM CLT - 6PM CLT
   jobTemplate:
     spec:
       ttlSecondsAfterFinished: 172800
@@ -27,22 +41,26 @@ spec:
         spec:
           activeDeadlineSeconds: 3600
           containers:
-          - name: cnpg-backup
-            image: docker.io/cbarria/cnpg-backup:0.3
-            resources:
-              requests:
-                ephemeral-storage: "6Gi"
-              limits:
-                ephemeral-storage: "8Gi"
-            volumeMounts:
-              - name: ephemeral
-                mountPath: "/tmp"
-            imagePullPolicy: IfNotPresent
-            envFrom:
-            - secretRef:
-                name: cnpg-backup-secrets
-            env:
-            - name: HOST
-              value: "cnpg-loadbalancer.cloudnativepg.svc.cluster.local"
+            - name: cnpg-backup
+              image: docker.io/lsstit/cnpg-backup:0.6
+              volumeMounts:
+                - name: ephemeral
+                  mountPath: /tmp
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - secretRef:
+                    name: cnpg-backup-secrets
+              env:
+                - name: HOST
+                  value: cnpg-loadbalancer.cloudnativepg.svc.cluster.local
+          volumes:
+            - name: ephemeral
+              ephemeral:
+                volumeClaimTemplate:
+                  spec:
+                    accessModes: [ReadWriteOnce]
+                    resources:
+                      requests:
+                        storage: 5Gi
           restartPolicy: OnFailure
 END
