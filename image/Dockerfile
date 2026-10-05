@@ -1,4 +1,4 @@
-FROM postgres:16.8-bullseye
+FROM postgres:17.5-bullseye
 
 ADD . /app
 RUN apt-get update \
